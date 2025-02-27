@@ -15,13 +15,13 @@ client = Groq(api_key=api_key)
 
 # Initialize FAISS and Embedding Model
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")  # Lightweight, fast embeddings
-dimension = 384  # Output size of MiniLM embeddings
-faiss_index = faiss.IndexFlatL2(dimension)
+dimension = 384  # model output 384 dimensional mein dega
+faiss_index = faiss.IndexFlatL2(dimension) # store karne ke liye
 documents = []  # Stores document texts
 doc_embeddings = []  # Stores embeddings
 
 # Function to extract text from PDF
-def extract_text_from_pdf(file):
+def extract_text_from_pdf(file):                          #extract karne ke liye har ek page  takes all page and return karega
     text = ""
     with pdfplumber.open(file) as pdf:
         for page in pdf.pages:
@@ -31,19 +31,19 @@ def extract_text_from_pdf(file):
 # Function to extract text from DOCX
 def extract_text_from_docx(file):
     doc = docx.Document(file)
-    return "\n".join([para.text for para in doc.paragraphs])
+    return "\n".join([para.text for para in doc.paragraphs])    #docx mein paragraph wise text return karega
 
 # Function to summarize document
 def summarize_document(text):
-    prompt = f"Summarize the following legal document:\n\n{text}"
+    prompt = f"Summarize the following legal document:\n\n{text}"    # summarize karne ke liye
     
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "system", "content": prompt}],
-        temperature=0.5,
-        max_completion_tokens=500,
-        top_p=1,
-        stream=False
+        temperature=0.5,   #Balances karega accuracy and creativity.
+        max_completion_tokens=500, #limits response
+        top_p=1,  # accurate answer samjho
+        stream=False  #sab khuch ek baar dega answer
     )
     
     return response.choices[0].message.content.strip()
@@ -69,13 +69,13 @@ def add_to_faiss(text):
     embedding = embedding_model.encode([text])
     faiss_index.add(np.array(embedding, dtype=np.float32))
     documents.append(text)
-    doc_embeddings.append(embedding)
+    doc_embeddings.append(embedding)   # ENcode karega text embedding mein and similar document se similar document find karega finally it store
 
 # Function to retrieve similar documents using FAISS
 def retrieve_similar(text, top_k=2):
     embedding = embedding_model.encode([text])
     _, indices = faiss_index.search(np.array(embedding, dtype=np.float32), top_k)
-    return [documents[i] for i in indices[0] if i < len(documents)]
+    return [documents[i] for i in indices[0] if i < len(documents)]  #query text into emdedding stored using faiss for better response 
 
 # Function for RAG-based legal chatbot
 def legal_chatbot(question, text):
@@ -87,10 +87,10 @@ def legal_chatbot(question, text):
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "system", "content": prompt}],
-        temperature=0.5,
-        max_completion_tokens=500,
-        top_p=1,
-        stream=False
+        temperature=0.5, #Balances karega accuracy and creativity.
+        max_completion_tokens=500, #limits response
+        top_p=1, # accurate answer samjho
+        stream=False #sab khuch ek baar dega answer
     )
     
     return response.choices[0].message.content.strip()
