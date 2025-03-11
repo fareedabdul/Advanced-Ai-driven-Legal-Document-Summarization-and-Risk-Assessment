@@ -1,8 +1,10 @@
 # All rights reserved.
-#* Copyright (c) 2025 VidzAI
-#* This software and associated documentation files are the property of VidzAI.
-#* No part of this software may be copied, modified, distributed, or used 
-#* without explicit permission from VidzAI.
+#
+# Copyright (c) 2025 VidzAI
+# This software and associated documentation files are the property of VidzAI.
+#
+# No part of this software may be copied, modified, distributed, or used 
+# without explicit permission from VidzAI.
 
 import streamlit as st
 import os
@@ -16,6 +18,7 @@ import requests
 from sentence_transformers import SentenceTransformer
 from groq import Groq
 from dotenv import load_dotenv
+from difflib import HtmlDiff
 
 # Load API key
 load_dotenv()
@@ -175,6 +178,17 @@ def legal_chatbot(user_question, document_text):
     
     return response.choices[0].message.content.strip()
 
+# New Function: Compare Documents
+def compare_documents(doc1_text, doc2_text):
+    differ = HtmlDiff()
+    html_diff = differ.make_file(
+        doc1_text.splitlines(),
+        doc2_text.splitlines(),
+        fromdesc="Original Document",
+        todesc="Revised Document"
+    )
+    return html_diff
+
 # Streamlit UI
 st.set_page_config(page_title="🔍 AI-Powered Legal Compliance Analysis", layout="wide")
 st.title("📜 AI-Powered Legal Document & Summarizer ")
@@ -183,23 +197,44 @@ st.title("📜 AI-Powered Legal Document & Summarizer ")
 st.sidebar.header("📂 Upload Your Legal Document")
 st.sidebar.write("Note: This AI assistant is for informational purposes only and should not replace professional legal advice.")
 uploaded_file = st.sidebar.file_uploader("Upload a PDF, DOCX, or TXT file", type=["pdf", "docx", "txt"])
+uploaded_file2 = st.sidebar.file_uploader("Upload a second document for comparison (optional)", type=["pdf", "docx", "txt"])
+
+document_text = None
+document_text2 = None
 
 if uploaded_file is not None:
     file_extension = uploaded_file.name.split(".")[-1]
-
-    # Extract text
+    # Extract text from first document
     if file_extension == "pdf":
         document_text = extract_text_from_pdf(uploaded_file)
     elif file_extension == "docx":
         document_text = extract_text_from_docx(uploaded_file)
     else:
         document_text = uploaded_file.getvalue().decode("utf-8")
-
+    
     # Store document in FAISS
     add_to_faiss(document_text)
 
-    # Tabs for different functionalities
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📜 Summarization", "⚠ Risk Analysis", "🛡 ChatBot & GDPR", "📥 Download Reports", "📧 Email Summary"])
+if uploaded_file2 is not None:
+    file_extension2 = uploaded_file2.name.split(".")[-1]
+    # Extract text from second document
+    if file_extension2 == "pdf":
+        document_text2 = extract_text_from_pdf(uploaded_file2)
+    elif file_extension2 == "docx":
+        document_text2 = extract_text_from_docx(uploaded_file2)
+    else:
+        document_text2 = uploaded_file2.getvalue().decode("utf-8")
+
+# Tabs for different functionalities
+if document_text:
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "📜 Summarization", 
+        "⚠ Risk Analysis", 
+        "🛡 GDPR Compliance", 
+        "📥 Download Reports", 
+        "📧 Email Summary",
+        "📑 Document Comparison"
+    ])
 
     # **Tab 1: Document Summarization**
     with tab1:
@@ -209,7 +244,7 @@ if uploaded_file is not None:
 
         # Download Summary
         summary_filename = "Legal_Summary.txt"
-        with open(summary_filename, "w") as f:
+        with open(summary_filename, "w", encoding="utf-8") as f:
             f.write(summary)
 
         with open(summary_filename, "rb") as f:
@@ -223,7 +258,7 @@ if uploaded_file is not None:
 
     # **Tab 3: GDPR Compliance**
     with tab3:
-        st.subheader("🛡 GDPR Compliance")
+        st.subheader("🛡 GDPR Compliance Check")
         gdpr_issues = check_gdpr_compliance(document_text)
         if gdpr_issues:
             plot_risk_analysis(gdpr_issues, "🛡 GDPR Compliance Risks")
@@ -245,7 +280,7 @@ if uploaded_file is not None:
         # Generate GDPR Compliance Report
         gdpr_report = "GDPR Compliance Report:\n\n" + "\n".join([f"{k}: {v}" for k, v in gdpr_issues.items()])
         gdpr_filename = "GDPR_Compliance_Report.txt"
-        with open(gdpr_filename, "w") as f:
+        with open(gdpr_filename, "w", encoding="utf-8") as f:
             f.write(gdpr_report)
 
         with open(gdpr_filename, "rb") as f:
@@ -261,3 +296,20 @@ if uploaded_file is not None:
                 st.success(email_status)
             else:
                 st.warning("⚠ Please enter a valid email address.")
+
+    # **Tab 6: Document Comparison**
+    with tab6:
+        st.subheader("📑 Document Comparison")
+        if document_text2:
+            st.write("Comparing the two uploaded documents...")
+            diff_html = compare_documents(document_text, document_text2)
+            st.components.v1.html(diff_html, height=600, scrolling=True)
+            
+            # Download comparison
+            diff_filename = "document_comparison.html"
+            with open(diff_filename, "w", encoding="utf-8") as f:
+                f.write(diff_html)
+            with open(diff_filename, "rb") as f:
+                st.download_button("📥 Download Comparison (HTML)", f, file_name=diff_filename)
+        else:
+            st.warning("Please upload a second document in the sidebar to enable comparison.")
